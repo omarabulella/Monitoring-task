@@ -2,7 +2,7 @@ groups:
 - name: container-alerts
   rules:
   - alert: ContainerDown
-    expr: up{job="cadvisor", container_name!="", container_name!="POD"} == 1
+    expr: up{job="cadvisor", container_name!="", container_name!="POD"} == 0
     for: 1m
     labels:
       severity: critical
