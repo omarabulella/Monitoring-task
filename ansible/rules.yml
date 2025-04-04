@@ -1,0 +1,20 @@
+groups:
+  - name: alerts
+    rules:
+      - alert: ContainerDown
+        expr: up{job="docker", container_label_com_docker_swarm_service_name=~".+"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "A container is down"
+          description: "The container is not reporting as up for 3 minutes."
+
+      - alert: InfraMachineUnreachable
+        expr: up{job="node"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Infra machine is unreachable"
+          description: "The node exporter is down, indicating the infra machine is unreachable."

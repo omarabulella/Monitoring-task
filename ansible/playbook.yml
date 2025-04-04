@@ -1,0 +1,136 @@
+---
+- name: install docker on the 3 instances
+  hosts: all
+  become: true
+  vars:
+    packages:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+  tasks:
+    - name: Install Dependencis
+      apt:
+        name: "{{item}}"
+        state: present
+        update_cache: yes
+      loop: "{{packages}}"
+
+    - name: Add Docker GPG apt key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+    
+    - name: Add Docker Repo
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: update apt and install docker-ce
+      apt:
+        name: docker-ce
+        state: latest
+        update_cache: yes
+- name: install node exporter on infra ec2 and app
+  hosts:
+    - infra
+    - app
+  become: true
+  tasks: 
+    - name: install node exporter
+      docker_container:
+        name: node-exporter
+        image: prom/node-exporter:latest
+        state: started
+        published_ports:
+          - "9100:9100"
+    - name: Run cAdvisor container
+      docker_container:
+        name: cadvisor
+        image: gcr.io/cadvisor/cadvisor:latest
+        state: started
+        restart_policy: always
+        privileged: true
+        published_ports:
+          - "8080:8080"
+        volumes:
+          - "/:/rootfs:ro"
+          - "/var/run:/var/run:ro"
+          - "/sys:/sys:ro"
+          - "/var/lib/docker/:/var/lib/docker:ro"
+          - "/sys/fs/cgroup:/sys/fs/cgroup:ro"
+
+- name: run nginx and redis on app ec2
+  hosts: app
+  become: true
+  tasks:
+    - name: run redis container
+      docker_container:
+        name: redis
+        image: redis:latest
+        state: started
+        published_ports:
+         - "6379:6379"
+    - name: run nginx container
+      docker_container:
+        name: nginx
+        image: nginx:latest 
+        state: started
+        published_ports:
+        - "80:80"
+- name: configure prometheus and Grafana containers
+  hosts: prometheus
+  become: true
+  tasks: 
+    - name: copy prometheus.yml configuration
+      copy:
+        src: /home/omar/monitoring-task/ansible/prometheus.yml
+        dest: /home/ubuntu/prometheus.yml
+    - name: copy rules.yml configuration
+      copy:
+        src: /home/omar/monitoring-task/ansible/rules.yml
+        dest: /home/ubuntu/rules.yml
+    - name: copy alertmanger.yml configuration
+      copy:
+        src: /home/omar/monitoring-task/ansible/alertmanager.yml
+        dest: /home/ubuntu/alertmanager.yml
+    - name: create docker network 
+      docker_network:
+        name: monitoring_network
+    - name: Create Prometheus container
+      docker_container:
+        name: prometheus
+        image: prom/prometheus
+        state: started
+        restart_policy: always
+        ports:
+          - "9090:9090"
+        volumes:
+          - "/home/ubuntu/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+          - "/home/ubuntu/rules.yml:/etc/prometheus/rules.yml:ro"
+        networks:
+          - name: monitoring_network
+    - name: Create Grafana container
+      docker_container:
+        name: grafana
+        image: grafana/grafana:latest
+        restart_policy: always
+        state: started
+        ports:
+          - "3000:3000"
+        env:
+          GF_SECURITY_ADMIN_PASSWORD: "admin"
+        networks:
+          - name: monitoring_network
+    - name: Create Alertmanager container
+      docker_container:
+        name: alertmanager
+        image: prom/alertmanager:latest
+        restart_policy: always
+        state: started
+        ports:
+          - "9093:9093"
+        volumes:
+          - "/home/ubuntu/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro"
+        networks:
+          - name: monitoring_network

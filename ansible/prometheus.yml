@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: 'infra'
+    static_configs:
+      - targets: ['54.218.190.198:9100']
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['52.43.81.191:8080']
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+
+rule_files:
+  - "rules.yml"
