@@ -1,20 +1,26 @@
 groups:
 - name: container-alerts
   rules:
-  - alert: ContainerDown
-    expr: up{job="cadvisor", container_name!="", container_name!="POD"} == 0
-    for: 1m
+  - alert: RedisDown
+    expr: redis_up == 0
+    for: 0m
     labels:
       severity: critical
     annotations:
-      summary: "Container {{ $labels.container_name }} is down"
-      description: "Container {{ $labels.container_name }} on {{ $labels.instance }} is not running."
-
-- alert: InfraMachineUnreachable
-    expr: up{job="infra", instance="infra_ec2_private_ip:9100"} == 0
-    for: 1m
+      summary: Redis down (instance {{ $labels.instance }})
+      description: "Redis instance is down\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+  - alert: nginxDOWN
+    expr: nginx_up == 0
+    for: 0m
+    labels:
+      severity: critical
+    annotations:
+      summary: Nginx down (instance {{ $labels.instance }})
+      description: "Nginx instance is down\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+  - alert: InfraMachineUnreachable
+    expr: up== 0
+    for: 0m
     labels:
       severity: critical
     annotations:
       summary: "Infra machine is unreachable"
-      description: "The Infra machine at {{ $labels.instance }} is unreachable. Please check the VM."
